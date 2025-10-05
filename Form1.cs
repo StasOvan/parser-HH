@@ -206,53 +206,6 @@ namespace parser_HH
 
 
 
-        private void webView_NavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
-        {
-            _isPageLoaded = e.IsSuccess;
-        }
-
-
-
-        private async Task doCheckParse()
-        {
-            try
-            {
-                btnCheck.Enabled = false;
-                btnCheck.Text = "Загрузка...";
-
-                string url = "https://volgograd.hh.ru/vacancy/126010841";
-
-                // Навигация на страницу вакансии
-                webView.CoreWebView2.Navigate(url);
-
-                // Ожидаем завершения навигации
-                await WaitForNavigationComplete();
-                //await Task.Delay(1000);
-                //await WaitForNavigationComplete();
-
-                // Выполняем процесс парсинга
-                string phoneNumber = await ExtractPhoneNumber();
-
-                if (!string.IsNullOrEmpty(phoneNumber))
-                {
-                    MessageBox.Show($"Найденный телефон: {phoneNumber}", "Результат парсинга");
-                }
-                else
-                {
-                    MessageBox.Show("Не удалось найти номер телефона", "Результат");
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка при парсинге: {ex.Message}", "Ошибка");
-            }
-            finally
-            {
-                btnCheck.Enabled = true;
-                btnCheck.Text = "Проверить вакансию";
-            }
-        }
-
         private async Task WaitForNavigationComplete()
         {
             var tcs = new TaskCompletionSource<bool>();
@@ -356,7 +309,7 @@ namespace parser_HH
         
         private async void btnCheck_Click(object sender, EventArgs e)
         {
-            await doCheckParse();
+         
         }
 
         private async Task<string> ReadWindowValue(string value) {

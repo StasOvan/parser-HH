@@ -52,7 +52,6 @@
             webView.Size = new Size(802, 437);
             webView.TabIndex = 0;
             webView.ZoomFactor = 1D;
-            webView.NavigationCompleted += webView_NavigationCompleted;
             // 
             // btnStartParse
             // 
