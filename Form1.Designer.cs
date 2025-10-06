@@ -36,7 +36,7 @@
             label0 = new Label();
             label1 = new Label();
             label2 = new Label();
-            btnCheck = new Button();
+            btnContinue = new Button();
             ((System.ComponentModel.ISupportInitialize)webView).BeginInit();
             SuspendLayout();
             // 
@@ -70,6 +70,7 @@
             // 
             // txtURL
             // 
+            txtURL.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             txtURL.Font = new Font("Segoe UI", 11.25F, FontStyle.Regular, GraphicsUnit.Point, 204);
             txtURL.Location = new Point(12, 29);
             txtURL.Name = "txtURL";
@@ -79,6 +80,7 @@
             // 
             // btnOpenLink
             // 
+            btnOpenLink.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnOpenLink.BackColor = Color.RoyalBlue;
             btnOpenLink.Cursor = Cursors.Hand;
             btnOpenLink.FlatStyle = FlatStyle.Flat;
@@ -117,22 +119,22 @@
             // 
             label2.AutoSize = true;
             label2.ForeColor = Color.White;
-            label2.Location = new Point(376, 71);
+            label2.Location = new Point(484, 71);
             label2.Name = "label2";
             label2.Size = new Size(38, 15);
             label2.TabIndex = 6;
             label2.Text = "label3";
+            label2.Click += label2_Click;
             // 
-            // btnCheck
+            // btnContinue
             // 
-            btnCheck.Location = new Point(710, 67);
-            btnCheck.Name = "btnCheck";
-            btnCheck.Size = new Size(75, 23);
-            btnCheck.TabIndex = 7;
-            btnCheck.Text = "button1";
-            btnCheck.UseVisualStyleBackColor = true;
-            btnCheck.Visible = false;
-            btnCheck.Click += btnCheck_Click;
+            btnContinue.Location = new Point(644, 67);
+            btnContinue.Name = "btnContinue";
+            btnContinue.Size = new Size(141, 23);
+            btnContinue.TabIndex = 7;
+            btnContinue.Text = "продолжить";
+            btnContinue.UseVisualStyleBackColor = true;
+            btnContinue.Click += btnContinue_Click;
             // 
             // Form1
             // 
@@ -140,7 +142,7 @@
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.Navy;
             ClientSize = new Size(800, 532);
-            Controls.Add(btnCheck);
+            Controls.Add(btnContinue);
             Controls.Add(label2);
             Controls.Add(label1);
             Controls.Add(label0);
@@ -166,6 +168,6 @@
         private Label label0;
         private Label label1;
         private Label label2;
-        private Button btnCheck;
+        private Button btnContinue;
     }
 }

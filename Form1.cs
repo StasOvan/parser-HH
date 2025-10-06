@@ -8,10 +8,21 @@ namespace parser_HH
 {
     public partial class Form1 : Form
     {
+        #region Константы
 
         private bool _isPageLoaded = false;
+
         List<string> refers = new List<string>();
+
         int index = 1;
+        int max_pages = 19;
+
+        const string filename = "result.csv";
+        const string stateFile = "processing_state";
+
+        bool flagFileResultClickable = false;
+        bool flagAppend = false; // признак добавления строк в resut.csv
+        #endregion
 
         public Form1()
         {
@@ -29,12 +40,14 @@ namespace parser_HH
                 txtURL.Text = Properties.Settings.Default.LastRefer;
 
             int CountRuns = Properties.Settings.Default.CountRuns;
-            
-            if (CountRuns > 10) 
-                Application.Exit();
-            else
-                Properties.Settings.Default.CountRuns = 1;
 
+            if (CountRuns > 1000)
+            {
+                Application.Exit(); return;
+            }
+            else Properties.Settings.Default.CountRuns = CountRuns + 1;
+
+            Properties.Settings.Default.Save();
 
             // Опционально: Указываем папку для данных браузера (куки, кеш и т.д.)
             // Если не указать, будет использоваться папка по умолчанию
@@ -47,11 +60,13 @@ namespace parser_HH
 
         private async void btnStartParse_Click(object sender, EventArgs e)
         {
+            flagAppend = false;
+
             string checkElementScript = @"
-            //(function() {
-                var element = document.querySelector('.vacancy-serp-content');
-                 element ? true : false;
-            //})();";
+                //var element = document.querySelector('.vacancy-serp-content');
+                //element ? true : false;
+                document.querySelector('.vacancy-serp-content') ? true : false;
+            ";
 
             string result = await webView.CoreWebView2.ExecuteScriptAsync(checkElementScript);
 
@@ -65,8 +80,8 @@ namespace parser_HH
                 label2.Text = "Считываю данные ..";
                 await ParseRefers();
                 await ParseVacancies();
-                label1.Text = "Парсинг завершен успешно!";
-                label2.Text = $"Обработано {refers.Count} вакансий";
+                //label1.Text = "Парсинг завершен успешно!";
+                //label2.Text = $"Обработано {refers.Count} вакансий";
             }
             else
             {
@@ -86,29 +101,24 @@ namespace parser_HH
             Properties.Settings.Default.LastRefer = txtURL.Text;
             Properties.Settings.Default.Save();
 
-            webView.Source = new Uri(txtURL.Text);
-            
-            Task.Delay(10000);
+            webView.CoreWebView2.Navigate(txtURL.Text);
+
+            await Task.Delay(10000);
             await WaitForNavigationComplete();
             addHistory("Для начала парсинга нажмите \"Начать сбор данных\"", "");
             MessageBox.Show("Страница загружена. Можно начинать парсинг.");
-            
-        }
 
-        private void addHistory(string text1, string text2)
-        {
-            label1.Text = text1; label2.Text = text2;
-            label1.BackColor = Color.Navy;
         }
 
 
         private async Task ParseRefers()
         {
-            int max_pages = 1;
+            //File.Delete(stateFile);
             refers.Clear();
 
             string scriptPath = Path.Combine(Application.StartupPath, "parseRefers.js");
             string script = File.ReadAllText(scriptPath);
+
 
             index = 0;
             for (var page = 1; page <= 1000; page++)
@@ -128,32 +138,32 @@ namespace parser_HH
                 {
                     index++;
                     refers.Add(refer);
-                    Debug.Print(refer);
                     label2.Text = $"Считываю данные: {page} ({index}) ";
-                    Application.DoEvents();
+                    //Application.DoEvents();
                 }
-
-
-                Debug.Print(refers.ToString());
 
                 if (page == max_pages) break;
 
                 webView.CoreWebView2.Navigate(txtURL.Text + $"&page={page + 1}");
-                await WaitForNavigationComplete();
-            }
 
+                await WaitForNavigationComplete();
+                await Task.Delay(10000);
+            }
+            File.WriteAllLines(stateFile, refers.ToList());
             Debug.Print("---wqewrwqrrewr---");
 
         }
 
         private async Task ParseVacancies()
         {
-            Debug.Print("Begin parseVacansies");
-            string scriptPath = Path.Combine(Application.StartupPath, "parseVacancy.js");
-            string script = File.ReadAllText(scriptPath);
+            string phoneValue, phoneNumber, phoneType;
+            string lineCSV;
+            string remainingRefers;
 
-            var filename = "result.csv";
-            File.WriteAllText(filename, "URL;Телефон;Работодатель;Должность;Оплата;Опыт" + Environment.NewLine, Encoding.UTF8);
+            string scriptPath = Path.Combine(Application.StartupPath, "parseVacancy.js");
+            string js_parseVacancy = File.ReadAllText(scriptPath);
+
+            if (flagAppend == false) File.WriteAllText(filename, "URL;Телефон;Тип;Работодатель;Должность;Оплата;Опыт" + Environment.NewLine, Encoding.UTF8);
 
             var i = 1;
             foreach (var refer in refers)
@@ -162,29 +172,46 @@ namespace parser_HH
 
                 webView.CoreWebView2.Navigate(refer);
                 await WaitForNavigationComplete();
-                
 
                 // Выполняем процесс парсинга Phone
-                string phoneNumber = await ExtractPhoneNumber();
+                phoneValue = await ExtractPhoneNumber();
+                phoneNumber = "";
+                phoneType = "";
+
+                phoneValue = string.IsNullOrEmpty(phoneValue) ? "только чат" : phoneValue;
+
+                if (phoneValue.Contains("|"))
+                {
+                    phoneNumber = phoneValue.Split("|")[0];
+                    phoneType = phoneValue.Split("|")[1];
+                }
 
                 // Выполняем процесс парсинга Data Vacancy
-                string jsonResult = await webView.CoreWebView2.ExecuteScriptAsync(script);
+                string jsonResult = await webView.CoreWebView2.ExecuteScriptAsync(js_parseVacancy);
                 jsonResult = jsonResult.Trim('\"');
                 jsonResult = System.Text.RegularExpressions.Regex.Unescape(jsonResult);
                 var vacancy = JsonSerializer.Deserialize<VacancyData>(jsonResult);
 
-                var line = $"{EscapeCsvField(refer)};" +
-                            $"{EscapeCsvField(phoneNumber)};" +
-                            $"{EscapeCsvField(vacancy.Employer)};" +
-                            $"{EscapeCsvField(vacancy.Title)};" +
-                            $"{EscapeCsvField(vacancy.Salary)};" +
-                            $"{EscapeCsvField(vacancy.Experience)};";
+                if (vacancy != null) {
+                    lineCSV = $"{EscapeCsvField(refer)};" +
+                                $"{EscapeCsvField(phoneNumber)};" +
+                                $"{EscapeCsvField(phoneType)};" +
+                                $"{EscapeCsvField(vacancy.Employer)};" +
+                                $"{EscapeCsvField(vacancy.Title)};" +
+                                $"{EscapeCsvField(vacancy.Salary)};" +
+                                $"{EscapeCsvField(vacancy.Experience)};";
+                } else 
+                    lineCSV = $"{EscapeCsvField(refer)};" + "\"вакансия снята\"";
+                
+                File.AppendAllText(filename, lineCSV + Environment.NewLine, Encoding.UTF8);
+                // Сохраняем оставшиеся элементы (исключая обработанные)
+                File.WriteAllLines(stateFile, refers.Skip(i - 1).ToList());
 
-                File.AppendAllText(filename, line + Environment.NewLine, Encoding.UTF8);
-            }
+            } // foreach
 
-            if (MessageBox.Show("Сбор данных завершен.", "Завершено", MessageBoxButtons.YesNo) == DialogResult.OK)
-                    Process.Start("result.csv");
+            addHistory("Сбор данных завершен: " + DateTime.Now.ToString("HH:mm dd.MM.yyyy"), "refer");
+            if (MessageBox.Show("Сбор данных завершен. \nХотите открыть файл с результатами?", "Завершено", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                Process.Start(new ProcessStartInfo { FileName = Path.Combine(Application.StartupPath, filename), UseShellExecute = true });
         }
 
 
@@ -205,6 +232,15 @@ namespace parser_HH
         }
 
 
+        private async Task<bool> isCaptchaEnabled()
+        {
+            var script = @"document.body.innerText.search("" не робот"") > 0  ? true : false";
+            string result = await webView.CoreWebView2.ExecuteScriptAsync(script);
+            if (result == "true") {
+                //MessageBox.Show("Обнаружена капча.\nВведите капчу вручную.");
+                return true;
+            } else return false;
+        }
 
         private async Task WaitForNavigationComplete()
         {
@@ -219,7 +255,10 @@ namespace parser_HH
 
             webView.CoreWebView2.NavigationCompleted += handler;
             await tcs.Task;
+
+            while (await isCaptchaEnabled()) Application.DoEvents(); // проверка на присутствие капчи
         }
+
 
         private async Task<string> ExtractPhoneNumber()
         {
@@ -265,12 +304,8 @@ namespace parser_HH
                     checkButton();
                 });
             ";
-
-
-                
             string result = await webView.CoreWebView2.ExecuteScriptAsync(waitAndClickScript);
             return await ReadWindowValue("checkButtonContact");
-            //return true;
         }
 
         private async Task<string> WaitForPhoneNumber()
@@ -278,17 +313,32 @@ namespace parser_HH
             string phoneScript = @"
     // Создаем глобальную переменную для хранения результата
     window.phoneNumberResult = null;
-    
+    var phoneType = '';    
+
     new Promise((resolve, reject) => {
         const timeout = 15000;
         const startTime = Date.now();
         
         const checkPhone = () => {
+
             const phoneSpan = document.querySelector('[data-qa=""vacancy-contacts__phone-number""]');
+
+            const drop = document.querySelector('[data-qa=""drop-base""]');
+            
+            if (drop) {
+                if (drop.innerText.search(""Работодатель не"") > 0) {
+                    window.phoneNumberResult = 'только чат';
+                    resolve();
+                }
+            }
+            
+            if (document.body.innerText.search(""Защищённые номера"") > 0) phoneType = ""X"";
+                        else phoneType = ""-!-"";
+
             if (phoneSpan && phoneSpan.innerText.trim() !== '') {
                 // Сохраняем результат в глобальную переменную
-                window.phoneNumberResult = phoneSpan.innerText;
-                resolve(phoneSpan.innerText);
+                window.phoneNumberResult = phoneSpan.innerText + '|' + phoneType;
+                resolve(phoneSpan.innerText + '|' + phoneType);
             } else if (Date.now() - startTime >= timeout) {
                 reject(new Error('Таймаут ожидания номера телефона'));
             } else {
@@ -306,13 +356,9 @@ namespace parser_HH
 
         }
 
-        
-        private async void btnCheck_Click(object sender, EventArgs e)
-        {
-         
-        }
 
-        private async Task<string> ReadWindowValue(string value) {
+        private async Task<string> ReadWindowValue(string value) // читаем значение в браузере window
+        {
 
             string? result = null;
             int attempts = 0;
@@ -338,6 +384,41 @@ namespace parser_HH
             return result;
         }
 
+        private void label2_Click(object sender, EventArgs e)
+        {
+            if (flagFileResultClickable)
+                Process.Start(new ProcessStartInfo { FileName = Path.Combine(Application.StartupPath, filename), UseShellExecute = true });
+        }
+
+        private void addHistory(string text1, string text2)
+        {
+            if (text2 == "refer")
+            {
+
+                flagFileResultClickable = true;
+                label1.Text = text1;
+                label2.Text = filename;
+                label2.Cursor = Cursors.Hand;
+            }
+            else
+            {
+                flagFileResultClickable = false;
+                label1.Text = text1;
+                label2.Text = text2;
+                label2.Cursor = Cursors.Default;
+                label1.BackColor = Color.Navy;
+            }
+
+
+        }
+
+        private async void btnContinue_Click(object sender, EventArgs e)
+        {
+            flagAppend = true;
+            refers = File.ReadAllLines(stateFile).ToList();
+            Debug.Print(refers[0]);
+            await ParseVacancies();
+        }
     }
 
 

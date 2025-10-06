@@ -16,7 +16,7 @@ for (let i = 0; i < vacancies.length; i++) {
     const contactElement = vacancy.querySelector('[data-qa="vacancy-serp__vacancy_contacts"]');
     // console.log(contactElement);
     if (contactElement) {
-        console.log(q++ + "=" + i);
+        //console.log(q++ + "=" + i);
         temp = urlElement.getAttribute('href');
         if (temp.includes('?b=')) {
             temp = new URL(temp).searchParams.get('b');
@@ -25,7 +25,7 @@ for (let i = 0; i < vacancies.length; i++) {
             refer = temp.split('?')[0];
         }
         refers.push(refer);
-        console.log(refer);
+        //console.log(refer);
     }
 
 }
